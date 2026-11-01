@@ -149,7 +149,7 @@ ${PROJECT_ROOT_GUARD}
 8. **Commit checkpoint with precise staging**
 
    After completion or pause, ask the user whether to commit this round's work.
-   - If the user declines or has not answered: stage nothing, run no staging or commit command, and finish the round as the user directs.
+   - If the user declines or has not answered: stage nothing, run no staging or commit command, note that without a commit later rollback and the archive checkpoint cannot reference this round's work, and finish the round as the user directs.
    - Never stage or commit without the user's explicit agreement at this checkpoint.
 
    If the user agrees to commit:
@@ -161,7 +161,7 @@ ${PROJECT_ROOT_GUARD}
       Every other dirty path in the working tree — unrelated changes, other proposals' artifacts, temporary experiments — MUST stay unstaged.
    d. **Degraded branch when the repo does not track \`openspec/\`:** if the change artifacts cannot be tracked — \`git check-ignore -q "openspec/changes/<change-name>/"\` exits 0 (locally excluded, e.g. via \`.git/info/exclude\`), or \`git ls-files openspec/ | head -n 1\` prints nothing (nothing under \`openspec/\` is version-controlled) — stage ONLY the implementation files, explicitly state that \`openspec/changes/<change-name>/\` artifacts are not being committed (they stay untracked in the working tree), and never use \`git add -f\` to force the excluded artifacts in.
    e. **Record the staged list.** After staging, record the exact list of staged paths in at least one of: a second \`-m\` on the commit message (\`git commit -m "<subject>" -m "Staged: <path list>"\`) or a dated entry in \`openspec/changes/<change-name>/tasks.md\`, so every commit's file composition stays auditable afterwards.
-   f. Commit the staged files with a message that summarizes this round of implementation.
+   f. Commit with a message that starts with \`apply:\` and names the change (e.g. \`apply: add-user-auth implement tasks\`). When pausing with tasks still incomplete, note that in the message (e.g. \`apply: add-user-auth partial — 4/7 tasks\`) and leave the unfinished task checkboxes unchecked.
 
 **Output During Implementation**
 
@@ -195,6 +195,22 @@ All tracked tasks are complete. Review or verify the change as appropriate
 before archiving. ${ARCHIVE_HANDOFF}
 \`\`\`
 
+**Step 8 Commit Checkpoint (example)**
+
+\`\`\`
+All tasks complete. Commit this round's work with git? (y/n)
+> y
+git status --porcelain:
+ M src/foo.ts
+ M openspec/changes/<change-name>/tasks.md
+?? openspec/changes/<change-name>/proposal.md
+?? scripts/experiment.tmp
+Staging only this change's implementation files and openspec/changes/<change-name>/
+(scripts/experiment.tmp stays unstaged)...
+git commit -m "apply: <change-name> implement tasks" -m "Staged: src/foo.ts, openspec/changes/<change-name>/"
+✓ Committed
+\`\`\`
+
 **Output On Pause (Issue Encountered)**
 
 \`\`\`
@@ -213,6 +229,16 @@ before archiving. ${ARCHIVE_HANDOFF}
 3. Other approach
 
 What would you like to do?
+\`\`\`
+
+**Step 8 Commit Checkpoint on Pause (example)**
+
+\`\`\`
+Paused at 4/7 tasks. Commit the completed work with git? (y/n)
+> y
+Staging only this change's files and artifacts...
+git commit -m "apply: <change-name> partial — 4/7 tasks"
+✓ Committed (unfinished task checkboxes remain unchecked)
 \`\`\`
 
 **Guardrails**
