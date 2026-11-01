@@ -20,11 +20,16 @@ export function stripVolatileFrontmatter(content) {
 
 /**
  * Remove existing skill subdirectories (clears any renamed/removed skills)
- * while preserving top-level files like README.md. Refuses to run if the tree
- * contains a symlink: deleting one would only unlink it, and a symlinked skill
- * directory would otherwise let later writes land outside the repo.
+ * while preserving top-level files like README.md. Directories listed in
+ * `protectedNames` (the MANUAL_SKILL_DIRS allowlist) are skipped: manual
+ * skills are hand-written, not generated, so regeneration must leave them
+ * untouched. Refuses to run if the tree contains a symlink: deleting one
+ * would only unlink it, and a symlinked skill directory would otherwise let
+ * later writes land outside the repo. The symlink check runs before any
+ * deletion and covers protected directories too — the allowlist protects a
+ * directory from cleanup, never from the safety checks.
  */
-export function cleanSkillSubdirectories(outDir) {
+export function cleanSkillSubdirectories(outDir, protectedNames = []) {
   mkdirSync(outDir, { recursive: true });
   const entries = readdirSync(outDir, { withFileTypes: true });
   // Reject before deleting anything so a bad tree is left fully intact.
@@ -36,8 +41,42 @@ export function cleanSkillSubdirectories(outDir) {
     }
   }
   for (const entry of entries) {
-    if (entry.isDirectory()) {
+    if (entry.isDirectory() && !protectedNames.includes(entry.name)) {
       rmSync(join(outDir, entry.name), { recursive: true, force: true });
+    }
+  }
+}
+
+/** Same kebab-case rule as prepareSkillDirectory — one pattern, two consumers. */
+const SKILL_DIR_NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
+
+/**
+ * Validate the manual-skill allowlist before anything gets cleaned or
+ * written. An unsafe name or a name that collides with a generated template
+ * skill directory aborts generation (a silent skip would let a typo'd
+ * registration vanish the manual skill on the next run). A registered name
+ * that is simply not on disk yet only warns: registering ahead of writing
+ * the skill is a normal workflow, not an error.
+ */
+export function validateManualSkillDirs(outDir, manualDirs, templateDirNames) {
+  for (const name of manualDirs) {
+    if (!SKILL_DIR_NAME_PATTERN.test(name)) {
+      throw new Error(
+        `Invalid MANUAL_SKILL_DIRS entry ${JSON.stringify(name)}: unsafe skill directory name (expected kebab-case)`
+      );
+    }
+  }
+  const conflicts = manualDirs.filter((name) => templateDirNames.includes(name));
+  if (conflicts.length > 0) {
+    throw new Error(
+      `MANUAL_SKILL_DIRS entries ${conflicts.map((n) => JSON.stringify(n)).join(', ')} collide with generated skill directory names. Pick one: register it as a manual skill (remove the template) or keep it generated (remove it from MANUAL_SKILL_DIRS).`
+    );
+  }
+  for (const name of manualDirs) {
+    if (!readdirSync(outDir, { withFileTypes: true }).some((e) => e.name === name)) {
+      console.warn(
+        `MANUAL_SKILL_DIRS entry ${JSON.stringify(name)} does not exist under ${outDir} yet; nothing to preserve.`
+      );
     }
   }
 }
@@ -48,7 +87,7 @@ export function cleanSkillSubdirectories(outDir) {
  * name and never a symlink that would redirect the write elsewhere.
  */
 export function prepareSkillDirectory(outDir, dirName) {
-  if (!/^[a-z0-9][a-z0-9-]*$/.test(dirName)) {
+  if (!SKILL_DIR_NAME_PATTERN.test(dirName)) {
     throw new Error(`Refusing to generate: unsafe skill directory name ${JSON.stringify(dirName)}`);
   }
   const skillDir = join(outDir, dirName);

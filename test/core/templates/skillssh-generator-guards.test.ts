@@ -14,7 +14,11 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 // @ts-expect-error - plain ESM helper shared with the generator script
-import { cleanSkillSubdirectories, prepareSkillDirectory } from '../../../scripts/skillssh-shared.mjs';
+import {
+  cleanSkillSubdirectories,
+  prepareSkillDirectory,
+  validateManualSkillDirs,
+} from '../../../scripts/skillssh-shared.mjs';
 
 // Guards for scripts/generate-skillssh.mjs: cleanup must never follow a
 // symlink, and writes must only ever land in a real directory inside skills/.
@@ -64,6 +68,73 @@ describe('skills.sh generator guards', () => {
     expect(() => cleanSkillSubdirectories(outDir)).toThrow(/symlink/);
     expect(readFileSync(join(outsideDir, 'precious.md'), 'utf8')).toBe('do not touch');
     expect(existsSync(join(outDir, 'openspec-aaa-real'))).toBe(true);
+  });
+
+  it('cleanup preserves registered manual skill directories byte-for-byte', () => {
+    const manualDir = join(outDir, 'opsx-archive-with-validation');
+    mkdirSync(join(manualDir, 'references'), { recursive: true });
+    writeFileSync(join(manualDir, 'SKILL.md'), 'hand-written skill body', 'utf8');
+    writeFileSync(join(manualDir, 'references', 'deep.md'), 'subdocument', 'utf8');
+
+    cleanSkillSubdirectories(outDir, ['opsx-archive-with-validation']);
+
+    expect(readFileSync(join(manualDir, 'SKILL.md'), 'utf8')).toBe('hand-written skill body');
+    expect(readFileSync(join(manualDir, 'references', 'deep.md'), 'utf8')).toBe('subdocument');
+  });
+
+  it('cleanup still removes unregistered directories alongside protected ones', () => {
+    mkdirSync(join(outDir, 'opsx-archive-with-validation'), { recursive: true });
+    writeFileSync(join(outDir, 'opsx-archive-with-validation', 'SKILL.md'), 'manual', 'utf8');
+    mkdirSync(join(outDir, 'openspec-stale'));
+    writeFileSync(join(outDir, 'openspec-stale', 'SKILL.md'), 'stale', 'utf8');
+
+    cleanSkillSubdirectories(outDir, ['opsx-archive-with-validation']);
+
+    expect(existsSync(join(outDir, 'opsx-archive-with-validation', 'SKILL.md'))).toBe(true);
+    expect(existsSync(join(outDir, 'openspec-stale'))).toBe(false);
+  });
+
+  it('symlink guard runs before deletion even when the allowlist is honored', () => {
+    writeFileSync(join(outsideDir, 'precious.md'), 'do not touch', 'utf8');
+    const manualDir = join(outDir, 'opsx-archive-with-validation');
+    mkdirSync(manualDir, { recursive: true });
+    writeFileSync(join(manualDir, 'SKILL.md'), 'manual', 'utf8');
+    if (!trySymlinkDir(outsideDir, join(outDir, 'openspec-linked'))) return;
+
+    expect(() => cleanSkillSubdirectories(outDir, ['opsx-archive-with-validation'])).toThrow(
+      /symlink/
+    );
+    // Rejection happens before any deletion: the protected directory survives.
+    expect(readFileSync(join(manualDir, 'SKILL.md'), 'utf8')).toBe('manual');
+  });
+
+  it('manual allowlist validation rejects unsafe entries before any cleanup', () => {
+    for (const name of ['../escape', 'a/b', '..', '.hidden', 'UPPER', '']) {
+      expect(
+        () => validateManualSkillDirs(outDir, [name], ['openspec-fresh']),
+        name
+      ).toThrow(/unsafe skill directory name/);
+    }
+  });
+
+  it('manual allowlist validation rejects names colliding with template skills', () => {
+    expect(() =>
+      validateManualSkillDirs(outDir, ['opsx-archive-with-validation'], ['opsx-archive-with-validation'])
+    ).toThrow(/collide with generated skill directory names/);
+  });
+
+  it('manual allowlist validation only warns for registered names missing on disk', () => {
+    const warnings: string[] = [];
+    const originalWarn = console.warn;
+    console.warn = (message: string) => warnings.push(message);
+    try {
+      expect(() =>
+        validateManualSkillDirs(outDir, ['opsx-archive-with-validation'], ['openspec-fresh'])
+      ).not.toThrow();
+    } finally {
+      console.warn = originalWarn;
+    }
+    expect(warnings.some((w) => w.includes('opsx-archive-with-validation'))).toBe(true);
   });
 
   it('prepareSkillDirectory rejects path-traversing or non-simple names', () => {

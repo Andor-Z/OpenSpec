@@ -18,19 +18,32 @@ import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { getSkillTemplates, generateSkillContent } from '../dist/core/shared/skill-generation.js';
+import {
+  getSkillTemplates,
+  generateSkillContent,
+  MANUAL_SKILL_DIRS,
+} from '../dist/core/shared/skill-generation.js';
 import { transformToSkillReferences } from '../dist/utils/command-references.js';
 import {
   cleanSkillSubdirectories,
   prepareSkillDirectory,
   stripVolatileFrontmatter,
+  validateManualSkillDirs,
   SKILLS_DIR,
 } from './skillssh-shared.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = join(repoRoot, SKILLS_DIR);
 
-cleanSkillSubdirectories(outDir);
+// Validate the manual-skill allowlist before cleaning anything so a bad
+// registration aborts with the tree fully intact.
+validateManualSkillDirs(
+  outDir,
+  MANUAL_SKILL_DIRS,
+  getSkillTemplates().map(({ dirName }) => dirName)
+);
+
+cleanSkillSubdirectories(outDir, MANUAL_SKILL_DIRS);
 
 let count = 0;
 for (const { template, dirName } of getSkillTemplates()) {

@@ -58,6 +58,17 @@ function resolveInstalledWorkflows(
 }
 
 /**
+ * Hand-written skills that live in `skills/` but are NOT produced by the
+ * template pipeline. `cleanSkillSubdirectories()` must skip these so a
+ * `generate:skills` run never deletes them; register a manual skill by
+ * appending its directory name here. There is deliberately no other
+ * registration path — no pattern matching, no auto-detection.
+ */
+export const MANUAL_SKILL_DIRS: readonly string[] = [
+  'opsx-archive-with-validation',
+];
+
+/**
  * Skill template with directory name and workflow ID mapping.
  */
 export interface SkillTemplateEntry {
