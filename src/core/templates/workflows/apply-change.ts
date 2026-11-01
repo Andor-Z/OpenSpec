@@ -56,6 +56,8 @@ ${PROJECT_ROOT_GUARD}
 
    Always announce: "Using change: <name>" and how to override (e.g., \`/opsx:apply <other>\`).
 
+   **Stalled-change register scan:** if \`openspec/changes/<name>/滞留改动登记.md\` exists, read it first and present every stalled entry to the user (date, path, ownership, reason, suggested handling, status) before continuing — stalled matters must stay visible across sessions. If the register does not exist, skip silently and continue the normal flow with no extra output.
+
 2. **Check status to understand the schema**
    \`\`\`bash
    openspec status --change "<name>" --json
@@ -155,13 +157,18 @@ ${PROJECT_ROOT_GUARD}
    If the user agrees to commit:
    a. Run \`git status --porcelain\` first and present the full dirty-path list to the user before staging anything.
    b. If neither group below has any change, do not create an empty commit: report honestly that there is nothing to commit and end the checkpoint.
-   c. Stage exactly two groups of paths — nothing else:
+   c. **Triage every dirty path** before staging: paths belonging to this change (implementation files touched this round and \`openspec/changes/<change-name>/\` artifacts) → precise staging; every unrelated dirty path — other proposals' artifacts, temporary experiments, anything else — MUST NOT be staged. Register each unrelated path as a stalled entry in \`openspec/changes/<change-name>/滞留改动登记.md\` (format below) so it stays visible across sessions; the register records, it never disposes.
+   d. Stage exactly two groups of paths — nothing else:
       1. The implementation files this round actually edited or created (enumerate each path explicitly)
       2. \`openspec/changes/<change-name>/\` (the artifacts of this change)
-      Every other dirty path in the working tree — unrelated changes, other proposals' artifacts, temporary experiments — MUST stay unstaged.
-   d. **Degraded branch when the repo does not track \`openspec/\`:** if the change artifacts cannot be tracked — \`git check-ignore -q "openspec/changes/<change-name>/"\` exits 0 (locally excluded, e.g. via \`.git/info/exclude\`), or \`git ls-files openspec/ | head -n 1\` prints nothing (nothing under \`openspec/\` is version-controlled) — stage ONLY the implementation files, explicitly state that \`openspec/changes/<change-name>/\` artifacts are not being committed (they stay untracked in the working tree), and never use \`git add -f\` to force the excluded artifacts in.
-   e. **Record the staged list.** After staging, record the exact list of staged paths in at least one of: a second \`-m\` on the commit message (\`git commit -m "<subject>" -m "Staged: <path list>"\`) or a dated entry in \`openspec/changes/<change-name>/tasks.md\`, so every commit's file composition stays auditable afterwards.
-   f. Commit with a message that starts with \`apply:\` and names the change (e.g. \`apply: add-user-auth implement tasks\`). When pausing with tasks still incomplete, note that in the message (e.g. \`apply: add-user-auth partial — 4/7 tasks\`) and leave the unfinished task checkboxes unchecked.
+      Every other dirty path MUST stay unstaged and untouched.
+   e. **Degraded branch when the repo does not track \`openspec/\`:** if the change artifacts cannot be tracked — \`git check-ignore -q "openspec/changes/<change-name>/"\` exits 0 (locally excluded, e.g. via \`.git/info/exclude\`), or \`git ls-files openspec/ | head -n 1\` prints nothing (nothing under \`openspec/\` is version-controlled) — stage ONLY the implementation files, explicitly state that \`openspec/changes/<change-name>/\` artifacts are not being committed (they stay untracked in the working tree), and never use \`git add -f\` to force the excluded artifacts in.
+   f. **Record the staged list.** After staging, record the exact list of staged paths in at least one of: a second \`-m\` on the commit message (\`git commit -m "<subject>" -m "Staged: <path list>"\`) or a dated entry in \`openspec/changes/<change-name>/tasks.md\`, so every commit's file composition stays auditable afterwards.
+   g. Commit with a message that starts with \`apply:\` and names the change (e.g. \`apply: add-user-auth implement tasks\`). When pausing with tasks still incomplete, note that in the message (e.g. \`apply: add-user-auth partial — 4/7 tasks\`) and leave the unfinished task checkboxes unchecked.
+
+   If the user declines to commit: stage nothing, commit nothing, and register this change's own modifications (implementation files and artifacts) as stalled entries in \`openspec/changes/<change-name>/滞留改动登记.md\` with the reason "user declined to commit" so the next session picks them up.
+
+   **Stalled-change register format** (\`openspec/changes/<name>/滞留改动登记.md\`): every record carries six fields — date, path, ownership, stalled reason, suggested handling, status. The register is append-only: new records are appended at the end, existing record lines are never deleted or rewritten, and a status change is expressed by appending a new record that refers back to the original one. If a field cannot be determined, write an explicit placeholder note instead of omitting the field.
 
 **Output During Implementation**
 
@@ -261,6 +268,7 @@ git commit -m "apply: <change-name> partial — 4/7 tasks"
 - At the step 8 commit checkpoint, NEVER stage with \`git add -A\` or \`git add .\` — no matter how dirty the working tree is or how much the user pushes for it, enumerate the exact paths instead; there is no exception to this rule
 - Never use \`git add -f\` to force in artifacts excluded by \`.git/info/exclude\`; use the degraded staging branch instead
 - Only stage and commit after the user explicitly agrees at the step 8 checkpoint; record the staged-path list in the commit message or tasks.md
+- Never dispose of unrelated (stalled) changes on the user's behalf: the skill only registers and presents them in \`滞留改动登记.md\` — deleting, modifying, committing, staging, or reverting them happens only when the user explicitly initiates that action
 
 **Fluid Workflow Integration**
 
