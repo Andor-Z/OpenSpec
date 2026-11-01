@@ -146,6 +146,13 @@ In both branches, never create the root as a side effect: do not run `openspec i
    openspec status --change "<name>"
    ```
 
+8. **Proposal commit checkpoint**
+
+   Ask the user whether to git-commit the proposal artifacts of this change. This workflow NEVER commits on its own: with no user answer or with a refusal, run no `git add` and no `git commit`, and present the commit content and message prefix for confirmation before executing anything.
+
+   - If the user agrees: commit ONLY the files under `openspec/changes/<name>/` (the artifacts created in this run) with a commit message that starts with `proposal:` and names the change (e.g. `proposal: add-user-auth planning artifacts`). Do not stage or commit project code, other changes' directories, or anything else.
+   - If the user declines (or asks to skip): record that the user chose not to commit yet — state it in your output, make no commit and no staging, and continue with the normal handoff below; a refusal does not abort the workflow.
+
 **Output**
 
 After completing all artifacts, summarize:
