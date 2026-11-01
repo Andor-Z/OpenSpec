@@ -156,9 +156,12 @@ export async function newChangeCommand(name: string | undefined, options: NewCha
     // Resolve the schema once (--schema, then config, then the root default)
     // and hand it to createChange, so the progress line names the schema the
     // change gets and config warnings print only once. An empty --schema is
-    // absent, matching createChange's `if (options.schema)`.
+    // absent, matching createChange's `if (options.schema)`. The config is
+    // also read once here and passed through, shared with createChange's
+    // naming-language resolution.
+    const projectConfig = readProjectConfig(projectRoot);
     const resolvedSchema =
-      options.schema || (readProjectConfig(projectRoot)?.schema ?? root.defaultSchema);
+      options.schema || (projectConfig?.schema ?? root.defaultSchema);
     if (spinner) {
       spinner.start(`Creating change '${name}' with schema '${resolvedSchema}'...`);
     }
@@ -167,6 +170,7 @@ export async function newChangeCommand(name: string | undefined, options: NewCha
       schema: resolvedSchema,
       defaultSchema: root.defaultSchema,
       changesDir: root.changesDir,
+      projectConfig,
       metadata: {
         ...(options.goal ? { goal: options.goal } : {}),
       },

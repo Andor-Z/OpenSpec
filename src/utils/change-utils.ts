@@ -3,6 +3,7 @@ import { FileSystemUtils } from './file-system.js';
 import { writeChangeMetadata, validateSchemaName } from './change-metadata.js';
 import { formatLocalDate } from './date.js';
 import { readProjectConfig } from '../core/project-config.js';
+import type { ProjectConfig } from '../core/project-config.js';
 import { getGlobalConfig } from '../core/global-config.js';
 import {
   buildChangeNameForbiddenPattern,
@@ -32,6 +33,13 @@ export interface CreateChangeOptions {
   changesDir?: string;
   /** Additional metadata to persist in the change's .openspec.yaml */
   metadata?: Partial<Pick<ChangeMetadata, 'goal' | 'affected_areas' | 'initiative'>>;
+  /**
+   * Pre-read project config. When provided (including explicitly `null` for an
+   * unreadable config), createChange reuses it for the naming language and
+   * schema resolution instead of reading `openspec/config.yaml` again, so a
+   * warning-annotated config warns exactly once per creation.
+   */
+  projectConfig?: ProjectConfig | null;
 }
 
 /**
@@ -179,10 +187,15 @@ export function validateChangeName(
  * become `zh-CN`) so caches only ever hold canonical keys.
  *
  * @param projectRoot - The root directory of the project (where `openspec/` lives)
+ * @param projectConfig - Optional pre-read project config; when provided
+ *   (including explicitly `null`), the project level is not read again and this
+ *   value decides the project level directly.
  */
-export function resolveNamingLanguage(projectRoot: string): string {
+export function resolveNamingLanguage(projectRoot: string, projectConfig?: ProjectConfig | null): string {
   try {
-    const projectValue = readProjectConfig(projectRoot)?.naming?.changeNameLanguage;
+    const projectValue = projectConfig === undefined
+      ? readProjectConfig(projectRoot)?.naming?.changeNameLanguage
+      : projectConfig?.naming?.changeNameLanguage;
     const normalized = projectValue ? normalizeNamingLanguage(projectValue) : null;
     if (normalized) {
       return normalized;
@@ -229,29 +242,39 @@ export async function createChange(
   name: string,
   options: CreateChangeOptions = {}
 ): Promise<CreateChangeResult> {
+  const defaultSchema = options.defaultSchema ?? DEFAULT_SCHEMA;
+
+  // Read the project config at most once per creation and share it between
+  // the naming-language resolution and the schema resolution, so a
+  // warning-annotated config warns exactly once (the "reads the project
+  // config once" contract).
+  const projectConfig = options.projectConfig !== undefined
+    ? options.projectConfig
+    : (() => {
+        try {
+          return readProjectConfig(projectRoot);
+        } catch {
+          // If config read fails, degrade the same way a missing config would.
+          return null;
+        }
+      })();
+
   // Validate the name first, in the language the two-level naming
   // configuration resolves for this project (project config.yaml → global
   // config.json → default).
-  const validation = validateChangeName(name, { language: resolveNamingLanguage(projectRoot) });
+  const validation = validateChangeName(name, {
+    language: resolveNamingLanguage(projectRoot, projectConfig),
+  });
   if (!validation.valid) {
     throw new Error(validation.error);
   }
-
-  const defaultSchema = options.defaultSchema ?? DEFAULT_SCHEMA;
 
   // Determine schema: explicit option → project config → supplied default
   let schemaName: string;
   if (options.schema) {
     schemaName = options.schema;
   } else {
-    // Try to read from project config
-    try {
-      const config = readProjectConfig(projectRoot);
-      schemaName = config?.schema ?? defaultSchema;
-    } catch {
-      // If config read fails, use default
-      schemaName = defaultSchema;
-    }
+    schemaName = projectConfig?.schema ?? defaultSchema;
   }
 
   // Validate the resolved schema
