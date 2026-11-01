@@ -151,8 +151,8 @@ Archive an OpenSpec change only after a recorded, evidence-based acceptance pass
       | C4 | Requirement implementation mapping | any ADDED/MODIFIED requirement exists | for each requirement: search the codebase for implementation evidence; record `file:line` per requirement |
       | C5 | Scenario coverage | any ADDED/MODIFIED scenario exists | for each scenario: locate a test or executable evidence; run the targeted test when one exists |
       | C6 | Removed/renamed behavior gone | delta contains REMOVED/RENAMED requirements | read the baseline behavior from the main spec; search the codebase for it; expect absence |
-      | C7 | Build green | project has a build step | run the project's build command (in this fork: `corepack pnpm build`) |
-      | C8 | Test suite green | project has tests | run the full test suite (in this fork: `corepack pnpm test`) |
+      | C7 | Build green | project has a build step | run the project's own build command — infer it from the host project's scripts/conventions (e.g. package.json `scripts.build`, Makefile, CI config); never assume a specific toolchain. Example in this fork: `corepack pnpm build` |
+      | C8 | Test suite green | project has tests | run the host project's own full test suite — infer it from the project's test runner configuration (e.g. package.json `scripts.test`, pytest/vitest/go test conventions); never assume a specific toolchain. Example in this fork: `corepack pnpm test` |
       | C9 | Generation parity | template sources touched (`src/core/templates/` etc.) | run the regen pipeline and the parity tests; generated trees must match template output |
       | C10 | Declared docs impact | the change declares documentation impact | verify each claimed doc update exists and matches the shipped behavior |
 
