@@ -11,11 +11,11 @@
 
 ## 3. 验证
 
-- [ ] 3.1 运行 `git check-ignore -v openspec/changes/add-openspec-exclude-discipline/proposal.md` 确认排除规则命中
-- [ ] 3.2 运行 `git status --porcelain` 确认 `openspec/changes/` 下未跟踪新目录不再显示、而 `openspec/config.yaml`（已跟踪）的修改照常显示
-- [ ] 3.3 运行 `node ./bin/openspec.js context --json` 确认 config.yaml 追加 rules 后解析正常
-- [ ] 3.4 运行 `openspec validate add-openspec-exclude-discipline --strict`（仓库 CLI：`node ./bin/openspec.js`）
+- [x] 3.1 运行 `git check-ignore -v openspec/changes/add-openspec-exclude-discipline/proposal.md` 确认排除规则命中
+- [x] 3.2 运行 `git status --porcelain` 确认 `openspec/changes/` 下未跟踪新目录不再显示、而 `openspec/config.yaml`（已跟踪）的修改照常显示
+- [x] 3.3 运行 `node ./bin/openspec.js context --json` 确认 config.yaml 追加 rules 后解析正常
+- [x] 3.4 运行 `openspec validate add-openspec-exclude-discipline --strict`（仓库 CLI：`node ./bin/openspec.js`）
 
 ## 4. 提交检查点
 
-- [ ] 4.1 git 提交检查点实战：`git add openspec/config.yaml`（已跟踪文件，无需 -f）+ `git add -f openspec/changes/add-openspec-exclude-discipline/`（被排除路径，需 -f 强制），以 `proposal: add-openspec-exclude-discipline 本地排除与魔改纪律固化` 提交；提交信息注明本变更是「先创建目录、后追加 exclude」顺序的 founding case
+- [x] 4.1 git 提交检查点实战：`git add openspec/config.yaml`（已跟踪文件，无需 -f）+ `git add -f openspec/changes/add-openspec-exclude-discipline/`（被排除路径，需 -f 强制），以 `proposal: add-openspec-exclude-discipline 本地排除与魔改纪律固化` 提交；提交信息注明本变更是「先创建目录、后追加 exclude」顺序的 founding case
