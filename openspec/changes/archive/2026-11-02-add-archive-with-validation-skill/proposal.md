@@ -2,7 +2,7 @@
 
 ## Why
 
-上游归档流程不验证就归档：`/opsx:archive` 的前置只有可选的 `/opsx:verify` 与 `/opsx:sync`，AI 可以凭「看起来对了」直接 `openspec archive`，没有任何强制验收关卡。公司需要「归档前必须跑验收、验收不过不准归档」的标准路径技能。
+上游归档流程不验证就归档：`/opsx:archive` 的前置只有可选的 `/opsx:verify` 与 `/opsx:sync`，AI 可以凭「看起来对了」直接 `openspec archive`，没有任何强制验收关卡。需要「归档前必须跑验收、验收不过不准归档」的标准路径技能。
 
 该技能在 fork-status 核查中确认完全不存在（`skills/` 下 12 个技能全为 `openspec-*` 前缀；全仓库 grep `not_verified`、`gap_type`、`Rulings` 零命中）。其载体是约 650 行的手工技能 `skills/opsx-archive-with-validation/SKILL.md`，依赖 add-manual-skill-whitelist 落地的 `MANUAL_SKILL_DIRS` 白名单保护，不进模板生成管线。
 
@@ -45,6 +45,6 @@
   - 「解决的问题」→ Why。
   - 「改哪些文件」`skills/opsx-archive-with-validation/SKILL.md`（手工技能、约 650 行、白名单保护）→ What Changes 1 / Impact。
   - 「怎么改」四阶段 → What Changes 2。
-  - 「关键机制」四条：verdict 三态、finding 双字段、报告尾未决清单 + 3 轮升级、开头声明公司标准路径 → What Changes 1/3/4/5。
+  - 「关键机制」四条：verdict 三态、finding 双字段、报告尾未决清单 + 3 轮升级、开头声明标准路径 → What Changes 1/3/4/5。
 - 「纪律」节第 3 条（白名单保护、不进生成管线）→ Impact 与 design.md。
-- 偏差说明：需求稿称「开头声明公司标准路径」，本 proposal 统一表述为「归档的标准路径」（同一机制，去掉「公司」限定词以适配开源仓库语境，语义不变）。
+- 偏差说明：需求稿称「开头声明标准路径」，本 proposal 统一表述为「归档的标准路径」（同一机制，语义不变）。
