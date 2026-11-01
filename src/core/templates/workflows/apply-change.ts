@@ -146,6 +146,23 @@ ${PROJECT_ROOT_GUARD}
    - If all done: report that tracked tasks are complete and suggest review or verification as appropriate before archiving
    - If paused: explain why and wait for guidance
 
+8. **Commit checkpoint with precise staging**
+
+   After completion or pause, ask the user whether to commit this round's work.
+   - If the user declines or has not answered: stage nothing, run no staging or commit command, and finish the round as the user directs.
+   - Never stage or commit without the user's explicit agreement at this checkpoint.
+
+   If the user agrees to commit:
+   a. Run \`git status --porcelain\` first and present the full dirty-path list to the user before staging anything.
+   b. If neither group below has any change, do not create an empty commit: report honestly that there is nothing to commit and end the checkpoint.
+   c. Stage exactly two groups of paths — nothing else:
+      1. The implementation files this round actually edited or created (enumerate each path explicitly)
+      2. \`openspec/changes/<change-name>/\` (the artifacts of this change)
+      Every other dirty path in the working tree — unrelated changes, other proposals' artifacts, temporary experiments — MUST stay unstaged.
+   d. **Degraded branch when the repo does not track \`openspec/\`:** if the change artifacts cannot be tracked — \`git check-ignore -q "openspec/changes/<change-name>/"\` exits 0 (locally excluded, e.g. via \`.git/info/exclude\`), or \`git ls-files openspec/ | head -n 1\` prints nothing (nothing under \`openspec/\` is version-controlled) — stage ONLY the implementation files, explicitly state that \`openspec/changes/<change-name>/\` artifacts are not being committed (they stay untracked in the working tree), and never use \`git add -f\` to force the excluded artifacts in.
+   e. **Record the staged list.** After staging, record the exact list of staged paths in at least one of: a second \`-m\` on the commit message (\`git commit -m "<subject>" -m "Staged: <path list>"\`) or a dated entry in \`openspec/changes/<change-name>/tasks.md\`, so every commit's file composition stays auditable afterwards.
+   f. Commit the staged files with a message that summarizes this round of implementation.
+
 **Output During Implementation**
 
 \`\`\`
@@ -215,6 +232,9 @@ What would you like to do?
 - Consider every guidance entry; explain any inapplicable or conflicting advice
 - Do not copy runtime context or operation guidance into implementation files or planning artifacts
 - Preserve CLI-controlled blocked/ready/all-done behavior and completion criteria
+- At the step 8 commit checkpoint, NEVER stage with \`git add -A\` or \`git add .\` — no matter how dirty the working tree is or how much the user pushes for it, enumerate the exact paths instead; there is no exception to this rule
+- Never use \`git add -f\` to force in artifacts excluded by \`.git/info/exclude\`; use the degraded staging branch instead
+- Only stage and commit after the user explicitly agrees at the step 8 checkpoint; record the staged-path list in the commit message or tasks.md
 
 **Fluid Workflow Integration**
 
