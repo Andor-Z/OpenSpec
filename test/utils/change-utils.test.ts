@@ -13,11 +13,14 @@ describe('validateChangeName', () => {
 
     it('should accept a long-but-bounded name and reject one past the cap', () => {
       // Past the cap the failure must be a validation message, not a raw
-      // ENAMETOOLONG once mkdir hits the 255-byte component limit.
-      expect(validateChangeName('a'.repeat(200))).toEqual({ valid: true });
-      const result = validateChangeName('a'.repeat(201));
+      // ENAMETOOLONG once mkdir hits the 255-byte component limit. The cap
+      // counts UTF-8 bytes, so 220 ASCII characters (220 bytes) pass and
+      // 221 fail.
+      expect(validateChangeName('a'.repeat(220))).toEqual({ valid: true });
+      const result = validateChangeName('a'.repeat(221));
       expect(result.valid).toBe(false);
       expect(result.error).toContain('too long');
+      expect(result.error).toContain('UTF-8 bytes');
     });
 
     it('should accept name with multiple segments', () => {
@@ -58,6 +61,72 @@ describe('validateChangeName', () => {
     it('should accept an all-numeric name', () => {
       const result = validateChangeName('100');
       expect(result).toEqual({ valid: true });
+    });
+  });
+
+  describe('valid names - Chinese allowed', () => {
+    it('should accept a pure Chinese name', () => {
+      const result = validateChangeName('修复会话过期');
+      expect(result).toEqual({ valid: true });
+    });
+
+    it('should accept a numeric-prefixed Chinese name for ordering', () => {
+      const result = validateChangeName('100-修复登录');
+      expect(result).toEqual({ valid: true });
+    });
+
+    it('should accept a mixed Chinese-English segment name', () => {
+      const result = validateChangeName('修复-session-timeout');
+      expect(result).toEqual({ valid: true });
+    });
+
+    it('should accept the archive date-prefixed form with a Chinese name', () => {
+      const result = validateChangeName('2026-01-02-修复会话过期');
+      expect(result).toEqual({ valid: true });
+    });
+
+    it('should accept 68 Chinese characters (204 UTF-8 bytes)', () => {
+      // 68 x 3 = 204 bytes, comfortably inside the 220-byte cap.
+      expect(validateChangeName('修'.repeat(68))).toEqual({ valid: true });
+    });
+
+    it('should accept 73 Chinese characters (219 UTF-8 bytes, inside the cap)', () => {
+      // 73 x 3 = 219 bytes <= 220: the last Chinese character count that fits.
+      expect(validateChangeName('修'.repeat(73))).toEqual({ valid: true });
+    });
+  });
+
+  describe('invalid names - Chinese-era rejections', () => {
+    it('should reject a name with uppercase letters and underscores', () => {
+      const result = validateChangeName('Fix_Session');
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('underscores');
+    });
+
+    it('should reject fullwidth letters (Script=Common, not Han)', () => {
+      const result = validateChangeName('ＡＢＣ');
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('Chinese characters');
+    });
+
+    it('should reject a Chinese name with spaces', () => {
+      const result = validateChangeName('修复 会话过期');
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('spaces');
+    });
+
+    it('should reject a Chinese name with consecutive hyphens', () => {
+      const result = validateChangeName('修复--会话');
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('consecutive hyphens');
+    });
+
+    it('should reject 74 Chinese characters (222 UTF-8 bytes, past the cap)', () => {
+      // 74 x 3 = 222 bytes > 220: the error must explain the byte semantics.
+      const result = validateChangeName('修'.repeat(74));
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('UTF-8 bytes');
+      expect(result.error).toContain('3 bytes');
     });
   });
 

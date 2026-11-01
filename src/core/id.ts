@@ -1,6 +1,12 @@
 /**
- * The one kebab id grammar. Store ids, change ids, and legacy initiative ids
- * all share it.
+ * The one kebab id grammar. Store ids, legacy initiative ids, and workset
+ * ids all share it.
+ *
+ * Change names may deviate from this grammar: since
+ * allow-chinese-change-names they use a change-name-specific grammar (Han
+ * script characters united with lowercase letters and digits, hyphen
+ * segmented) defined in src/utils/change-utils.ts. Store, initiative, and
+ * workset ids keep using this shared grammar.
  */
 export const KEBAB_ID_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 

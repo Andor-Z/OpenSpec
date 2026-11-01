@@ -3,12 +3,25 @@ import { FileSystemUtils } from './file-system.js';
 import { writeChangeMetadata, validateSchemaName } from './change-metadata.js';
 import { formatLocalDate } from './date.js';
 import { readProjectConfig } from '../core/project-config.js';
-import { isKebabId } from '../core/id.js';
 import { resolveSchema } from '../core/artifact-graph/resolver.js';
 import { isSpecsArtifactPath } from '../core/artifact-graph/outputs.js';
 import type { ChangeMetadata } from '../core/change-metadata/index.js';
 
 const DEFAULT_SCHEMA = 'spec-driven';
+
+/**
+ * Change-name-specific grammar. Independent of the shared kebab id grammar in
+ * `src/core/id.ts` (which store/initiative/workset ids keep using): the
+ * character set is the union of Han script characters with lowercase letters
+ * and digits, segmented by single hyphens. The union — not a replacement —
+ * keeps numeric prefixes (`100-add-feature`) and archive-date prefixed forms
+ * (`2026-01-02-修复会话过期`) valid. The `u` flag is required for the
+ * `\p{...}` Unicode property escapes.
+ */
+const CHANGE_NAME_PATTERN = /^[\p{Script=Han}a-z0-9]+(?:-[\p{Script=Han}a-z0-9]+)*$/u;
+
+/** UTF-8 byte cap for a change name (see validateChangeName). */
+const CHANGE_NAME_MAX_UTF8_BYTES = 220;
 
 /**
  * Options for creating a change.
@@ -43,49 +56,68 @@ export interface ValidationResult {
 }
 
 /**
- * Validates that a change name follows kebab-case conventions.
+ * Validates that a change name follows the change-name grammar.
  *
- * Uses OpenSpec's shared kebab-id grammar (the same one store ids and change
- * metadata ids use), so a change name may:
- * - Start with a lowercase letter or a digit
- * - Contain only lowercase letters, numbers, and hyphens
+ * Change names use their own grammar — not the shared kebab id grammar in
+ * `src/core/id.ts`, which store/initiative/workset ids keep using — so a
+ * change name may:
+ * - Contain Chinese characters (Han script), lowercase letters, and numbers
+ * - Be segmented by single hyphens
  * - Not start or end with a hyphen
  * - Not contain consecutive hyphens
  *
- * A leading digit is allowed so ordering conventions like `100-add-feature` or
- * `00001-add-auth` work; archive already treats such prefixes as a supported
- * convention (see ARCHIVE_DATE_PREFIX_PATTERN).
+ * The union character set keeps English kebab names valid (the naming
+ * discipline is "prefer Chinese", not "ban English") alongside numeric
+ * prefixes like `100-add-feature` and archive-date prefixed forms like
+ * `2026-01-02-修复会话过期`.
+ *
+ * The length cap counts UTF-8 bytes, not characters: Chinese characters
+ * take 3 bytes each, and the filesystem directory component cap is 255
+ * bytes. Bounding here turns the failure into a validation message
+ * instead of a raw ENAMETOOLONG from mkdir.
  *
  * @param name - The change name to validate
  * @returns Validation result with `valid: true` or `valid: false` with an error message
  *
  * @example
  * validateChangeName('add-auth') // { valid: true }
+ * validateChangeName('修复会话过期') // { valid: true }
  * validateChangeName('100-add-feature') // { valid: true }
- * validateChangeName('Add-Auth') // { valid: false, error: '...' }
+ * validateChangeName('Fix_Session') // { valid: false, error: '...' }
  */
 export function validateChangeName(name: string): ValidationResult {
   if (!name) {
     return { valid: false, error: 'Change name cannot be empty' };
   }
 
-  // Filesystem directory components cap at 255 bytes and archive prepends a
-  // date prefix; bounding here turns the failure into a validation message
-  // instead of a raw ENAMETOOLONG from mkdir.
-  if (name.length > 200) {
-    return { valid: false, error: 'Change name is too long (200 characters max)' };
+  // Filesystem directory components cap at 255 bytes and archive prepends an
+  // 11-byte `YYYY-MM-DD-` date prefix (255 - 11 = 244); the remaining
+  // headroom guards against deep directory nesting (the Windows 260-char
+  // total-path limit makes that more sensitive). The cap is UTF-8 bytes —
+  // not characters — because Chinese characters take 3 bytes each, so a
+  // character-based cap would let oversized Chinese names reach mkdir and
+  // die with a raw ENAMETOOLONG. 220 bytes ≈ 73 Chinese characters or
+  // 220 ASCII characters.
+  if (Buffer.byteLength(name, 'utf8') > CHANGE_NAME_MAX_UTF8_BYTES) {
+    return {
+      valid: false,
+      error: 'Change name is too long (max 220 UTF-8 bytes; Chinese characters take 3 bytes each)'
+    };
   }
 
-  if (!isKebabId(name)) {
-    // Provide specific error messages for common mistakes
+  if (!CHANGE_NAME_PATTERN.test(name)) {
+    // Provide specific error messages for common mistakes. These checks are
+    // language-agnostic and fire for Chinese names too (e.g. `修复-Session`).
+    // The underscore check runs before the uppercase check so mixed
+    // violations like `Fix_Session` surface the fixable separator mistake.
+    if (/_/.test(name)) {
+      return { valid: false, error: 'Change name cannot contain underscores (use hyphens instead)' };
+    }
     if (/[A-Z]/.test(name)) {
-      return { valid: false, error: 'Change name must be lowercase (use kebab-case)' };
+      return { valid: false, error: 'Change name must be lowercase' };
     }
     if (/\s/.test(name)) {
       return { valid: false, error: 'Change name cannot contain spaces (use hyphens instead)' };
-    }
-    if (/_/.test(name)) {
-      return { valid: false, error: 'Change name cannot contain underscores (use hyphens instead)' };
     }
     if (name.startsWith('-')) {
       return { valid: false, error: 'Change name cannot start with a hyphen' };
@@ -96,11 +128,17 @@ export function validateChangeName(name: string): ValidationResult {
     if (/--/.test(name)) {
       return { valid: false, error: 'Change name cannot contain consecutive hyphens' };
     }
-    if (/[^a-z0-9-]/.test(name)) {
-      return { valid: false, error: 'Change name can only contain lowercase letters, numbers, and hyphens' };
+    if (/[^\p{Script=Han}a-z0-9-]/u.test(name)) {
+      return {
+        valid: false,
+        error: 'Change name can only contain Chinese characters, lowercase letters, numbers, and hyphens'
+      };
     }
 
-    return { valid: false, error: 'Change name must follow kebab-case convention (e.g., add-auth, refactor-db)' };
+    return {
+      valid: false,
+      error: 'Change name must use Chinese characters, lowercase letters, numbers, and single hyphen separators (e.g., add-auth, 修复会话过期)'
+    };
   }
 
   return { valid: true };
@@ -110,7 +148,7 @@ export function validateChangeName(name: string): ValidationResult {
  * Creates a new change directory with metadata file.
  *
  * @param projectRoot - The root directory of the project (where `openspec/` lives)
- * @param name - The change name (must be valid kebab-case)
+ * @param name - The change name (must satisfy validateChangeName: Chinese characters, lowercase letters, numbers, and hyphens)
  * @param options - Optional settings for the change
  * @throws Error if the change name is invalid
  * @throws Error if the schema name is invalid
