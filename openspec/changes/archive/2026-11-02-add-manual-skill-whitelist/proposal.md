@@ -4,7 +4,7 @@
 
 fork 现状（HEAD 27c0515，纯上游快照）没有「手工技能」通道：`generate:skills` 运行时 `cleanSkillSubdirectories()`（`scripts/skillssh-shared.mjs`）会把 `skills/` 下所有子目录全量清空重建，且全仓库 grep `MANUAL_SKILL_DIRS` / `manualSkillDirs` 零命中。这意味着任何直接放在 `skills/` 下的手工技能（例如后续要新增的 `opsx-archive-with-validation`）都会在下次再生成时被静默删除，也没有任何豁免通道可救。
 
-「验证式归档技能」等公司魔改需要手工编辑 `skills/` 下的文件而不进模板生成管线，这与现有「全量清理重建」机制直接冲突。因此必须先落地一个白名单基建，让 `generate:skills` 在清理时跳过登记过的手工技能目录。本变更是其余魔改变更（尤其是 add-archive-with-validation-skill）的前置基建。
+「验证式归档技能」等魔改需要手工编辑 `skills/` 下的文件而不进模板生成管线，这与现有「全量清理重建」机制直接冲突。因此必须先落地一个白名单基建，让 `generate:skills` 在清理时跳过登记过的手工技能目录。本变更是其余魔改变更（尤其是 add-archive-with-validation-skill）的前置基建。
 
 ## What Changes
 
