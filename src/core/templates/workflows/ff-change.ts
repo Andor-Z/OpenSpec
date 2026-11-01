@@ -8,6 +8,7 @@ import type { SkillTemplate, CommandTemplate } from '../types.js';
 import { optionalWorkflow } from '../optional-workflow.js';
 import { STORE_SELECTION_GUIDANCE } from './store-selection.js';
 import { PROJECT_ROOT_GUARD } from './project-root.js';
+import { NAMING_DISCIPLINE } from './naming-discipline.js';
 
 /**
  * The implementation handoff, resolved at generation time so a profile
@@ -39,7 +40,9 @@ ${STORE_SELECTION_GUIDANCE}
 
 ${PROJECT_ROOT_GUARD}
 
-**Input**: The user's request should include a change name (kebab-case) OR a description of what they want to build.
+${NAMING_DISCIPLINE}
+
+**Input**: The user's request should include a change name OR a description of what they want to build.
 
 **Steps**
 
@@ -48,7 +51,7 @@ ${PROJECT_ROOT_GUARD}
    Ask the user (open-ended, no preset options):
    > "What change do you want to work on? Describe what you want to build or fix."
 
-   From their description, derive a kebab-case name (e.g., "add user authentication" → \`add-user-auth\`).
+   From their description, derive a change name that follows the naming discipline above — prefer Chinese (e.g., a session-expiry fix → \`修复会话过期\`).
 
    **IMPORTANT**: Do NOT proceed without understanding what the user wants to build.
 

@@ -8,6 +8,7 @@ import type { SkillTemplate, CommandTemplate } from '../types.js';
 import { optionalWorkflow } from '../optional-workflow.js';
 import { STORE_SELECTION_GUIDANCE } from './store-selection.js';
 import { PROJECT_ROOT_GUARD } from './project-root.js';
+import { NAMING_DISCIPLINE } from './naming-discipline.js';
 
 /**
  * Handoffs to `continue`, which is not guaranteed to be installed alongside
@@ -35,7 +36,9 @@ ${STORE_SELECTION_GUIDANCE}
 
 ${PROJECT_ROOT_GUARD}
 
-**Input**: The user's request should include a change name (kebab-case) OR a description of what they want to build.
+${NAMING_DISCIPLINE}
+
+**Input**: The user's request should include a change name OR a description of what they want to build.
 
 **Steps**
 
@@ -44,7 +47,7 @@ ${PROJECT_ROOT_GUARD}
    Ask the user (open-ended, no preset options):
    > "What change do you want to work on? Describe what you want to build or fix."
 
-   From their description, derive a kebab-case name (e.g., "add user authentication" → \`add-user-auth\`).
+   From their description, derive a change name that follows the naming discipline above — prefer Chinese (e.g., a session-expiry fix → \`修复会话过期\`).
 
    **IMPORTANT**: Do NOT proceed without understanding what the user wants to build.
 
@@ -93,7 +96,7 @@ After completing the steps, summarize:
 **Guardrails**
 - Do NOT create any artifacts yet - just show the instructions
 - Do NOT advance beyond showing the first artifact template
-- If the name is invalid (not kebab-case), ask for a valid name
+- If the name is invalid (rejected by \`openspec new change\`), ask for a valid name following the naming discipline above
 - If a change with that name already exists, suggest continuing that change instead
 - Pass --schema if using a non-default workflow`,
     license: 'MIT',

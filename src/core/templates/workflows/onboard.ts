@@ -8,6 +8,7 @@ import type { SkillTemplate, CommandTemplate } from '../types.js';
 import { onlyWithWorkflow, optionalWorkflow } from '../optional-workflow.js';
 import { STORE_SELECTION_GUIDANCE } from './store-selection.js';
 import { PROJECT_ROOT_GUARD } from './project-root.js';
+import { NAMING_DISCIPLINE } from './naming-discipline.js';
 
 /**
  * The tutorial names other workflows throughout. Which of them exist depends
@@ -87,6 +88,8 @@ function getOnboardInstructions(): string {
 ${STORE_SELECTION_GUIDANCE}
 
 ${PROJECT_ROOT_GUARD}
+
+${NAMING_DISCIPLINE}
 
 ---
 
@@ -249,7 +252,7 @@ A "change" in OpenSpec is a container for all the thinking and planning around a
 Let me create one for our task.
 \`\`\`
 
-**DO:** Create the change with a derived kebab-case name:
+**DO:** Create the change with a name that follows the naming discipline above — prefer Chinese, e.g. \`修复会话过期\` (English kebab names remain valid):
 \`\`\`bash
 openspec new change "<derived-name>"
 \`\`\`

@@ -24,6 +24,14 @@ Otherwise, with no root, what happens next depends on how this workflow was reac
 
 In both branches, never create the root as a side effect: do not run `openspec init` until the user asks for it, do not hand-create `openspec/` files, and do not let a command create it.
 
+**Naming discipline — change 与 capability 目录名**：目录名要自解释——spec 积累到几百个时，中文目录名一眼即知管什么（如 `修复会话过期`），英文 kebab 名（如 `fix-session-timeout`）需要翻译。
+
+- change 目录名 SHALL 使用纯中文命名（如 `修复会话过期`）：从用户描述主动派生中文名，不要默认派生英文 kebab 名、等校验层拦截后再改。
+- capability（spec）目录名同样优先用中文命名；当前 capability 名无校验，以引导为主。
+- 英文 kebab 名依然合法——纪律是「优先中文」而不是「禁止英文」，校验层放行合法名，中文命名是主动引导。
+- 非法示例：`Fix_Session`（大写字母与下划线不被允许）。
+- 产物正文（proposal、design、spec、tasks）用中文书写；`SHALL`/`MUST` 等 RFC 2119 规范关键词 MUST 保留英文，不翻译。
+
 ---
 
 ## Preflight
@@ -185,7 +193,7 @@ A "change" in OpenSpec is a container for all the thinking and planning around a
 Let me create one for our task.
 ```
 
-**DO:** Create the change with a derived kebab-case name:
+**DO:** Create the change with a name that follows the naming discipline above — prefer Chinese, e.g. `修复会话过期` (English kebab names remain valid):
 ```bash
 openspec new change "<derived-name>"
 ```
