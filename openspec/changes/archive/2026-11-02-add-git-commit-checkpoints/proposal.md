@@ -4,7 +4,7 @@
 
 上游 OpenSpec 的提案工作流（propose → apply → archive）没有任何 git 提交纪律：`src/core/templates/workflows/propose.ts` 的 Output 段只要求总结产物并提示运行 `/opsx:apply`，`apply-change.ts` 止于 step 7 完成汇报，全模板无一处 `git commit` / `git add`（fork-status 核查：生成物 grep `git add|git commit|proposal:|apply:` 零命中）。结果是 AI 实施完可能不提交，或一次提交卷入多个提案的内容，「一个提案一个 commit、能独立回退」的纪律被破坏。
 
-公司需要在每个关键产物节点插入显式的提交检查点：由 AI 询问用户、用户决定是否提交、提交信息带可识别前缀，且永不自动提交。
+需要在每个关键产物节点插入显式的提交检查点：由 AI 询问用户、用户决定是否提交、提交信息带可识别前缀，且永不自动提交。
 
 ## What Changes
 
