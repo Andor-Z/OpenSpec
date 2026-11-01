@@ -126,6 +126,11 @@ export async function newChangeCommand(name: string | undefined, options: NewCha
       throw new Error('Missing required argument <name>');
     }
 
+    // Pre-flight on the default language: the project root is not resolved
+    // yet (and resolving it may create an implicit root, which a garbage name
+    // must not trigger). zh-CN is a superset of `en`, so this never rejects a
+    // name the configured language would accept; the authoritative
+    // config-driven validation runs in createChange with the resolved root.
     const validation = validateChangeName(name);
     if (!validation.valid) {
       throw new Error(validation.error);

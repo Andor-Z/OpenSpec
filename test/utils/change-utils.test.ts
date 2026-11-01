@@ -106,7 +106,7 @@ describe('validateChangeName', () => {
     it('should reject fullwidth letters (Script=Common, not Han)', () => {
       const result = validateChangeName('ＡＢＣ');
       expect(result.valid).toBe(false);
-      expect(result.error).toContain('Chinese characters');
+      expect(result.error).toContain('中文汉字');
     });
 
     it('should reject a Chinese name with spaces', () => {
@@ -201,6 +201,58 @@ describe('validateChangeName', () => {
       const result = validateChangeName('');
       expect(result.valid).toBe(false);
       expect(result.error).toContain('empty');
+    });
+  });
+
+  describe('language option (configurable naming language)', () => {
+    it('defaults to zh-CN when no language is passed', () => {
+      expect(validateChangeName('修复会话过期')).toEqual({ valid: true });
+      expect(validateChangeName('add-user-auth')).toEqual({ valid: true });
+    });
+
+    it('accepts English kebab names and rejects Chinese names in en mode', () => {
+      expect(validateChangeName('add-user-auth', { language: 'en' })).toEqual({ valid: true });
+      const rejected = validateChangeName('修复会话过期', { language: 'en' });
+      expect(rejected.valid).toBe(false);
+      expect(rejected.error).toContain('lowercase letters, numbers, and hyphens');
+      expect(rejected.error).not.toContain('中文汉字');
+    });
+
+    it('keeps the existing ASCII behavior green in en mode', () => {
+      for (const name of ['add-auth', 'add-user-auth', 'add-feature-2', 'refactor', 'upgrade-to-v2', '100-add-feature', '00001-add-auth', '101-01-fix-auth', '100']) {
+        expect(validateChangeName(name, { language: 'en' }), name).toEqual({ valid: true });
+      }
+      for (const name of ['Add-Auth', 'add auth', 'add_auth', 'add-auth!', 'add@auth', '-add-auth', 'add-auth-', 'add--auth']) {
+        const result = validateChangeName(name, { language: 'en' });
+        expect(result.valid, name).toBe(false);
+        expect(result.error, name).toBeDefined();
+      }
+    });
+
+    it('applies the mixed-segment rule per language', () => {
+      expect(validateChangeName('修复-session-timeout')).toEqual({ valid: true });
+      expect(validateChangeName('修复-session-timeout', { language: 'en' }).valid).toBe(false);
+    });
+
+    it('applies the 220-byte cap identically across languages', () => {
+      // zh-CN boundary: 73 Chinese characters (219 bytes) fit, 74 (222) do not.
+      expect(validateChangeName('修'.repeat(73), { language: 'zh-CN' })).toEqual({ valid: true });
+      const over = validateChangeName('修'.repeat(74), { language: 'zh-CN' });
+      expect(over.valid).toBe(false);
+      expect(over.error).toContain('UTF-8 bytes');
+      // en: same byte cap on ASCII characters, independent of the charset.
+      expect(validateChangeName('a'.repeat(220), { language: 'en' })).toEqual({ valid: true });
+      expect(validateChangeName('a'.repeat(221), { language: 'en' }).valid).toBe(false);
+      // 74 Chinese characters exceed the byte cap before the charset matters.
+      expect(validateChangeName('修'.repeat(74), { language: 'en' }).error).toContain('UTF-8 bytes');
+    });
+
+    it('describes the configured language charset in error copy', () => {
+      const zh = validateChangeName('ＡＢＣ');
+      expect(zh.error).toContain('中文汉字');
+      const enSummary = validateChangeName('ＡＢＣ', { language: 'en' });
+      expect(enSummary.error).toContain('lowercase letters, numbers');
+      expect(enSummary.error).not.toContain('中文汉字');
     });
   });
 });

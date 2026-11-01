@@ -32,6 +32,14 @@ export function serializeConfig(config: Partial<ProjectConfig>): string {
     lines.push('');
   }
 
+  // Naming section (optional prefill; see src/core/naming-grammar.ts for the
+  // supported values).
+  if (config.naming?.changeNameLanguage !== undefined) {
+    lines.push('naming:');
+    lines.push(`  changeNameLanguage: ${config.naming.changeNameLanguage}`);
+    lines.push('');
+  }
+
   // Rules section with comments
   lines.push('# Per-artifact rules (optional)');
   lines.push('# Add custom rules for specific artifacts.');

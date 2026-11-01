@@ -21,6 +21,16 @@ export interface TelemetryConfig {
   noticeSeen?: boolean;
 }
 
+/** Naming section of global config. */
+export interface GlobalNamingConfig {
+  /**
+   * Naming language for change-name validation, consulted only when the
+   * project config.yaml provides no `naming.changeNameLanguage` — a
+   * machine-level fallback that never overrides project configuration.
+   */
+  changeNameLanguage?: string;
+}
+
 // TypeScript interfaces
 export interface GlobalConfig {
   featureFlags?: Record<string, boolean>;
@@ -40,6 +50,8 @@ export interface GlobalConfig {
   completionTipSeen?: boolean;
   /** Whether the one-time note about the standalone install has been shown. */
   standaloneTipSeen?: boolean;
+  /** Naming language, a machine-level fallback (project config takes precedence). */
+  naming?: GlobalNamingConfig;
 }
 
 const DEFAULT_CONFIG: GlobalConfig = {
