@@ -4,6 +4,7 @@
 Define `/opsx:onboard` behavior for guiding users through an end-to-end OpenSpec workflow on their real codebase.
 
 ## Requirements
+
 ### Requirement: OPSX Onboard Skill
 
 The system SHALL provide an `/opsx:onboard` skill that guides users through their first complete OpenSpec workflow cycle with narration and real codebase work.
@@ -66,7 +67,7 @@ The skill SHALL guide users through each artifact with narration explaining the 
 #### Scenario: Change creation with narration
 
 - **WHEN** creating the change directory
-- **THEN** agent runs `openspec new change "<name>"` with derived kebab-case name
+- **THEN** agent runs `openspec new change "<name>"` with a name that follows the project naming discipline（项目命名纪律：目录名优先中文，如 `修复会话过期`；英文 kebab 名仍合法，见命名纪律段）
 - **AND** explains what a "change" is (container for thinking and planning)
 - **AND** shows the folder structure that was created
 - **AND** pauses for user acknowledgment before proceeding
@@ -164,4 +165,3 @@ The skill SHALL handle users who want to stop mid-way.
 - **WHEN** user says they just want to see the commands
 - **THEN** agent provides command cheat sheet
 - **AND** exits gracefully with encouragement to try `/opsx:new`
-
