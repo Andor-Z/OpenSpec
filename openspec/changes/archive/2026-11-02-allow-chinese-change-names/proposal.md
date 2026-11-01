@@ -2,7 +2,7 @@
 
 ## Why
 
-上游 OpenSpec 的 change 名（提案目录名）固定英文 kebab-case（如 `fix-session-timeout`），公司命名纪律要求纯中文（如「修复会话过期」）。名称不自解释：项目积累几百个 spec 后，光看目录名无法知道每条 spec 管什么——`修复会话过期` 一眼即知，`fix-session-timeout` 需要翻译。本变更是「spec 命名中文」三层防护（校验层 → 引导层 → 检查层）的第一层：放宽 change 名校验允许中文，让后续提案可以合法创建中文目录名。三层顺序不可倒置：先放开校验，再教 AI 用中文（naming-discipline-injection），最后治理存量（skeleton-chinese-gate-reference）——否则出现「AI 用中文但创建被拦」或「拦了创建但没人教」的中间态。
+上游 OpenSpec 的 change 名（提案目录名）固定英文 kebab-case（如 `fix-session-timeout`），命名纪律要求纯中文（如「修复会话过期」）。名称不自解释：项目积累几百个 spec 后，光看目录名无法知道每条 spec 管什么——`修复会话过期` 一眼即知，`fix-session-timeout` 需要翻译。本变更是「spec 命名中文」三层防护（校验层 → 引导层 → 检查层）的第一层：放宽 change 名校验允许中文，让后续提案可以合法创建中文目录名。三层顺序不可倒置：先放开校验，再教 AI 用中文（naming-discipline-injection），最后治理存量（检查层另行处理，未随本仓库交付）——否则出现「AI 用中文但创建被拦」或「拦了创建但没人教」的中间态。
 
 边界（本变更不动）：store / initiative / workset id 是系统内部 id，继续走 `src/core/id.ts` 的共享 kebab 语法（`KEBAB_ID_REGEX` / `isKebabId`），其余 4 个 `isKebabId` 消费方（`change-metadata/schema.ts`、`root-selection.ts`、`worksets.ts`、`store/foundation.ts`）天然不受影响；共享文案 `KEBAB_ID_DESCRIPTION` / `KEBAB_ID_FIX`（`src/core/id.ts:28-33`）服务 store/workset 报错，不动；workflow schema 名的独立校验（`src/commands/schema.ts`，首段必须字母开头）管的是 schema 名不是 change 名，不碰（防误改证据见 design.md）。
 
@@ -35,7 +35,7 @@
 ## 需求溯源
 
 - 来源文档：`openspec命名语言可配置方案-图片还原稿.md`「第一阶段：spec 命名改成中文」→「校验层：change 名允许中文」全节（img-4）。
-  - 「解决的问题」（kebab-only vs 公司纯中文纪律、store/initiative/workset id 保持 kebab 不动）→ Why。
+  - 「解决的问题」（kebab-only vs 纯中文纪律、store/initiative/workset id 保持 kebab 不动）→ Why。
   - 「改哪些文件」`src/utils/change-utils.ts`、`test/utils/change-utils.test.ts` → Impact。
   - 「怎么改」validateChangeName 脱离 isKebabId 改专用正则、正则放宽为 `/^[\p{Script=Han}a-z0-9]+(?:-[\p{Script=Han}a-z0-9]+)*$/u`、`/[^a-z0-9-]/` 分支同步放宽、错误文案说明允许中文/小写字母/数字/连字符、`commands/schema.ts` 是 schema 名校验不改 → What Changes 1 + design.md 决策 4。
   - 「关键机制」`\p{Script=Han}` 匹配汉字、`u` 标志必须加、汉字+小写字母+数字+连字符、不允许大写/下划线/空格、内部 id 仍走 isKebabId → spec delta requirement 正文。
@@ -45,5 +45,5 @@
   - 既有 200/201 字符用例在字节语义下必须重写（否则假绿）→ What Changes 3。
   - 并集不能写成替换式的论证（编号前缀 + 归档形态双保住）。
   - `id.ts:1-4` 注释「change ids share it」在放宽后失真，顺手修正（非行为改动）。
-  - list/view 中文列宽登记不修；git `core.quotepath` 显示问题登记为环境配置（随检查层参考件说明交付）。
+  - list/view 中文列宽登记不修；git `core.quotepath` 显示问题登记为环境配置。
 - 偏差说明：无。还原稿的正则、文案方向、「不碰 schema.ts」均逐条落实；220 字节上限为探索文档数值裁定（还原稿未给数）。

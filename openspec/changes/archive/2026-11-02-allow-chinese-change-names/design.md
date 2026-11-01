@@ -41,6 +41,6 @@
 ## Risks / Trade-offs
 
 - **既有测试语义反转**：`'a'.repeat(200)`/`'a'.repeat(201)` 在字节语义下（201 字节 ≤ 220）由一绿一红变两绿——必须同步重写为字节边界用例，否则测试失去守护意义（见 tasks 2.1）。
-- **git 中文路径显示为八进制转义**（`core.quotepath` 默认 true）：纯显示层，公司环境统一 `git config core.quotepath false` 一次性配置；非代码改动，写入同批检查层参考件的使用说明。
+- **git 中文路径显示为八进制转义**（`core.quotepath` 默认 true）：纯显示层，统一 `git config core.quotepath false` 一次性配置；非代码改动。
 - **Windows 路径总长 260**：中文名 + 深嵌套更早触顶——字节上限 220 已按组件约束；总长问题与本改动正交，测试按仓库跨平台纪律用 `path.join` 构造期望路径。
 - **APFS NFD 归一化**：常用 CJK 统一表意字不受影响；本正则不允许组合变音字符，无 NFC/NFD 双拼写问题。
