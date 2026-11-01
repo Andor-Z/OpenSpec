@@ -49,7 +49,7 @@ export function registerConfigCommand(program: Command): void {
   // config set
   configCmd
     .command('set <key> <value>')
-    .description('Set a value (auto-coerce types)')
+    .description('Set a value (auto-coerce types). naming.changeNameLanguage accepts zh-CN or en')
     .option('--string', 'Force value to be stored as string')
     .option('--allow-unknown', 'Allow setting unknown keys')
     .action(async (key: string, value: string, options: { string?: boolean; allowUnknown?: boolean }) => {
@@ -60,7 +60,7 @@ export function registerConfigCommand(program: Command): void {
   // config unset
   configCmd
     .command('unset <key>')
-    .description('Remove a key (revert to default)')
+    .description('Remove a key (revert to default), e.g. naming.changeNameLanguage')
     .action(async (key: string) => {
       const { configUnsetCommand } = await import('../../commands/config.js');
       configUnsetCommand(key);

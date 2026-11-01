@@ -32,6 +32,7 @@ import {
 import { PALETTE } from './styles/palette.js';
 import { isInteractive } from '../utils/interactive.js';
 import { serializeConfig } from './config-prompts.js';
+import { DEFAULT_NAMING_LANGUAGE, normalizeNamingLanguage } from './naming-grammar.js';
 import {
   generateCommands,
   CommandAdapterRegistry,
@@ -1113,6 +1114,18 @@ export class InitCommand {
     return formatLanguageContext(this.language);
   }
 
+  /**
+   * The `naming.changeNameLanguage` prefill for a freshly created config.yaml:
+   * the `--language` value when it maps to a charset-map key (`zh`/`zh-CN`/`en`,
+   * case-insensitive), otherwise the built-in default. Free-text language
+   * instructions (e.g. Spanish) keep flowing through the context channel and
+   * do not change the naming prefill.
+   */
+  private namingLanguagePreset(): string {
+    const normalized = this.language ? normalizeNamingLanguage(this.language) : null;
+    return normalized ?? DEFAULT_NAMING_LANGUAGE;
+  }
+
   private async assertLanguageCanBeApplied(
     projectPath: string,
     openspecPath: string
@@ -1162,6 +1175,7 @@ export class InitCommand {
       const yamlContent = serializeConfig({
         schema: DEFAULT_SCHEMA,
         context: this.languageContext(),
+        naming: { changeNameLanguage: this.namingLanguagePreset() },
       });
       FileSystemUtils.assertProjectArtifactPath(path.dirname(openspecPath), configPath);
       await FileSystemUtils.writeFile(configPath, yamlContent);

@@ -3,22 +3,19 @@ import { FileSystemUtils } from './file-system.js';
 import { writeChangeMetadata, validateSchemaName } from './change-metadata.js';
 import { formatLocalDate } from './date.js';
 import { readProjectConfig } from '../core/project-config.js';
+import { getGlobalConfig } from '../core/global-config.js';
+import {
+  buildChangeNameForbiddenPattern,
+  buildChangeNamePattern,
+  DEFAULT_NAMING_LANGUAGE,
+  getNamingCharset,
+  normalizeNamingLanguage,
+} from '../core/naming-grammar.js';
 import { resolveSchema } from '../core/artifact-graph/resolver.js';
 import { isSpecsArtifactPath } from '../core/artifact-graph/outputs.js';
 import type { ChangeMetadata } from '../core/change-metadata/index.js';
 
 const DEFAULT_SCHEMA = 'spec-driven';
-
-/**
- * Change-name-specific grammar. Independent of the shared kebab id grammar in
- * `src/core/id.ts` (which store/initiative/workset ids keep using): the
- * character set is the union of Han script characters with lowercase letters
- * and digits, segmented by single hyphens. The union — not a replacement —
- * keeps numeric prefixes (`100-add-feature`) and archive-date prefixed forms
- * (`2026-01-02-修复会话过期`) valid. The `u` flag is required for the
- * `\p{...}` Unicode property escapes.
- */
-const CHANGE_NAME_PATTERN = /^[\p{Script=Han}a-z0-9]+(?:-[\p{Script=Han}a-z0-9]+)*$/u;
 
 /** UTF-8 byte cap for a change name (see validateChangeName). */
 const CHANGE_NAME_MAX_UTF8_BYTES = 220;
@@ -56,36 +53,55 @@ export interface ValidationResult {
 }
 
 /**
+ * Options for validating a change name.
+ */
+export interface ValidateChangeNameOptions {
+  /**
+   * Naming language key (a `CHARSET_MAP` key). Defaults to
+   * `DEFAULT_NAMING_LANGUAGE` when omitted. Callers resolve it from config via
+   * {@link resolveNamingLanguage}; the function itself stays IO-free.
+   */
+  language?: string;
+}
+
+/**
  * Validates that a change name follows the change-name grammar.
  *
  * Change names use their own grammar — not the shared kebab id grammar in
  * `src/core/id.ts`, which store/initiative/workset ids keep using — so a
  * change name may:
- * - Contain Chinese characters (Han script), lowercase letters, and numbers
+ * - Contain the configured language's characters (zh-CN: Han script) united
+ *   with lowercase letters and numbers
  * - Be segmented by single hyphens
  * - Not start or end with a hyphen
  * - Not contain consecutive hyphens
  *
- * The union character set keeps English kebab names valid (the naming
- * discipline is "prefer Chinese", not "ban English") alongside numeric
- * prefixes like `100-add-feature` and archive-date prefixed forms like
- * `2026-01-02-修复会话过期`.
+ * The character set is built from the naming-language charset map
+ * (`src/core/naming-grammar.ts`); the union structure keeps English kebab
+ * names valid in every language (the naming discipline is "prefer Chinese",
+ * not "ban English") alongside numeric prefixes like `100-add-feature` and
+ * archive-date prefixed forms like `2026-01-02-修复会话过期`.
  *
- * The length cap counts UTF-8 bytes, not characters: Chinese characters
- * take 3 bytes each, and the filesystem directory component cap is 255
- * bytes. Bounding here turns the failure into a validation message
- * instead of a raw ENAMETOOLONG from mkdir.
+ * The length cap counts UTF-8 bytes, not characters, and is identical across
+ * languages: Chinese characters take 3 bytes each, and the filesystem
+ * directory component cap is 255 bytes. Bounding here turns the failure into
+ * a validation message instead of a raw ENAMETOOLONG from mkdir.
  *
  * @param name - The change name to validate
+ * @param options - Optional settings, including the naming language
  * @returns Validation result with `valid: true` or `valid: false` with an error message
  *
  * @example
- * validateChangeName('add-auth') // { valid: true }
- * validateChangeName('修复会话过期') // { valid: true }
+ * validateChangeName('add-auth') // { valid: true } (default zh-CN)
+ * validateChangeName('修复会话过期') // { valid: true } (default zh-CN)
+ * validateChangeName('修复会话过期', { language: 'en' }) // { valid: false, error: '...' }
  * validateChangeName('100-add-feature') // { valid: true }
  * validateChangeName('Fix_Session') // { valid: false, error: '...' }
  */
-export function validateChangeName(name: string): ValidationResult {
+export function validateChangeName(
+  name: string,
+  options: ValidateChangeNameOptions = {}
+): ValidationResult {
   if (!name) {
     return { valid: false, error: 'Change name cannot be empty' };
   }
@@ -97,7 +113,7 @@ export function validateChangeName(name: string): ValidationResult {
   // not characters — because Chinese characters take 3 bytes each, so a
   // character-based cap would let oversized Chinese names reach mkdir and
   // die with a raw ENAMETOOLONG. 220 bytes ≈ 73 Chinese characters or
-  // 220 ASCII characters.
+  // 220 ASCII characters. The cap does not vary with the naming language.
   if (Buffer.byteLength(name, 'utf8') > CHANGE_NAME_MAX_UTF8_BYTES) {
     return {
       valid: false,
@@ -105,7 +121,13 @@ export function validateChangeName(name: string): ValidationResult {
     };
   }
 
-  if (!CHANGE_NAME_PATTERN.test(name)) {
+  const language = options.language ?? DEFAULT_NAMING_LANGUAGE;
+  const charset = getNamingCharset(language);
+  const allowedDescription = charset.label
+    ? `${charset.label}, lowercase letters, numbers`
+    : 'lowercase letters, numbers';
+
+  if (!buildChangeNamePattern(language).test(name)) {
     // Provide specific error messages for common mistakes. These checks are
     // language-agnostic and fire for Chinese names too (e.g. `修复-Session`).
     // The underscore check runs before the uppercase check so mixed
@@ -128,20 +150,56 @@ export function validateChangeName(name: string): ValidationResult {
     if (/--/.test(name)) {
       return { valid: false, error: 'Change name cannot contain consecutive hyphens' };
     }
-    if (/[^\p{Script=Han}a-z0-9-]/u.test(name)) {
+    if (buildChangeNameForbiddenPattern(language).test(name)) {
       return {
         valid: false,
-        error: 'Change name can only contain Chinese characters, lowercase letters, numbers, and hyphens'
+        error: `Change name can only contain ${allowedDescription}, and hyphens`
       };
     }
 
     return {
       valid: false,
-      error: 'Change name must use Chinese characters, lowercase letters, numbers, and single hyphen separators (e.g., add-auth, 修复会话过期)'
+      error: `Change name must use ${allowedDescription}, and single hyphen separators (e.g., ${charset.example})`
     };
   }
 
   return { valid: true };
+}
+
+/**
+ * Resolves the effective naming language for a project: the project
+ * `openspec/config.yaml` `naming.changeNameLanguage` first, then the global
+ * `~/.config/openspec/config.json` `naming.changeNameLanguage` as a
+ * machine-level fallback (never an override), then the built-in default. Each
+ * level degrades independently: an unreadable project config consults the
+ * global one, an unreadable global config falls back to the default, and an
+ * unknown value at either level is skipped for the next one.
+ *
+ * Values are normalized to charset-map keys (aliases like `zh` or `ZH-cn`
+ * become `zh-CN`) so caches only ever hold canonical keys.
+ *
+ * @param projectRoot - The root directory of the project (where `openspec/` lives)
+ */
+export function resolveNamingLanguage(projectRoot: string): string {
+  try {
+    const projectValue = readProjectConfig(projectRoot)?.naming?.changeNameLanguage;
+    const normalized = projectValue ? normalizeNamingLanguage(projectValue) : null;
+    if (normalized) {
+      return normalized;
+    }
+  } catch {
+    // Project config unreadable — degrade to the global level.
+  }
+  try {
+    const globalValue = getGlobalConfig().naming?.changeNameLanguage;
+    const normalized = globalValue ? normalizeNamingLanguage(globalValue) : null;
+    if (normalized) {
+      return normalized;
+    }
+  } catch {
+    // Global config unreadable — degrade to the default.
+  }
+  return DEFAULT_NAMING_LANGUAGE;
 }
 
 /**
@@ -171,8 +229,10 @@ export async function createChange(
   name: string,
   options: CreateChangeOptions = {}
 ): Promise<CreateChangeResult> {
-  // Validate the name first
-  const validation = validateChangeName(name);
+  // Validate the name first, in the language the two-level naming
+  // configuration resolves for this project (project config.yaml → global
+  // config.json → default).
+  const validation = validateChangeName(name, { language: resolveNamingLanguage(projectRoot) });
   if (!validation.valid) {
     throw new Error(validation.error);
   }

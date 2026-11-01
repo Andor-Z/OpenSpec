@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { formatSupportedNamingLanguages, normalizeNamingLanguage } from './naming-grammar.js';
+
 /**
  * Zod schema for global OpenSpec configuration.
  * Uses passthrough() to preserve unknown fields for forward compatibility.
@@ -38,6 +40,13 @@ export const GlobalConfigSchema = z
     // Runtime-managed (like telemetry.noticeSeen); not user-settable via CLI set.
     completionTipSeen: z.boolean().optional(),
     standaloneTipSeen: z.boolean().optional(),
+    // Machine-level fallback for change-name validation; project config.yaml
+    // naming.changeNameLanguage always takes precedence.
+    naming: z
+      .object({
+        changeNameLanguage: z.string().min(1).optional(),
+      })
+      .optional(),
   })
   .passthrough();
 
@@ -57,10 +66,14 @@ const KNOWN_TOP_LEVEL_KEYS = new Set([
   'workflows',
   'defaultStore',
   'telemetry',
+  'naming',
 ]);
 
 /** Nested keys users may set under `telemetry` via the CLI. */
 const TELEMETRY_SETTABLE_KEYS = new Set(['enabled']);
+
+/** Nested keys users may set under `naming` via the CLI. */
+const NAMING_SETTABLE_KEYS = new Set(['changeNameLanguage']);
 
 /**
  * Key segments that would reach the prototype chain instead of the config object.
@@ -121,10 +134,46 @@ export function validateConfigKeyPath(path: string): { valid: boolean; reason?: 
     return { valid: true };
   }
 
+  if (rootKey === 'naming') {
+    if (rawKeys.length === 1) {
+      return { valid: false, reason: 'Set nested keys under naming (e.g. naming.changeNameLanguage)' };
+    }
+    if (rawKeys.length !== 2 || !NAMING_SETTABLE_KEYS.has(rawKeys[1])) {
+      return {
+        valid: false,
+        reason: `Unknown naming key "${rawKeys.slice(1).join('.')}" (allowed: changeNameLanguage)`,
+      };
+    }
+    return { valid: true };
+  }
+
   if (rawKeys.length > 1) {
     return { valid: false, reason: `"${rootKey}" does not support nested keys` };
   }
 
+  return { valid: true };
+}
+
+/**
+ * Value-domain check for CLI set operations on keys with a restricted value
+ * set. Runs before anything is written, so an unknown naming language is
+ * rejected with the supported list here instead of warning on the next read.
+ * `--allow-unknown` skips this check (it still never skips the
+ * UNSAFE_KEY_SEGMENTS prototype-chain guard, which the key-path validation
+ * and hasUnsafeKeySegment enforce separately).
+ */
+export function validateConfigSetValue(
+  key: string,
+  value: unknown
+): { valid: boolean; reason?: string } {
+  if (key === 'naming.changeNameLanguage') {
+    if (typeof value !== 'string' || normalizeNamingLanguage(value) === null) {
+      return {
+        valid: false,
+        reason: `Invalid value for "${key}" (supported: ${formatSupportedNamingLanguages()})`,
+      };
+    }
+  }
   return { valid: true };
 }
 

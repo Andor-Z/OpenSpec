@@ -20,6 +20,7 @@ import {
   validateConfigKeyPath,
   hasUnsafeKeySegment,
   validateConfig,
+  validateConfigSetValue,
   DEFAULT_CONFIG,
 } from '../core/config-schema.js';
 import { CORE_WORKFLOWS, ALL_WORKFLOWS, getProfileWorkflows } from '../core/profiles.js';
@@ -427,6 +428,18 @@ export function configSetCommand(key: string, value: string, options: { string?:
 
   const config = getGlobalConfig() as Record<string, unknown>;
   const coercedValue = coerceValue(value, options.string || false);
+
+  // Reject restricted-value keys before anything is written, so an unknown
+  // naming language fails here with the supported list instead of warning on
+  // the next read. --allow-unknown bypasses this (never the prototype guard).
+  if (!allowUnknown) {
+    const valueValidation = validateConfigSetValue(key, coercedValue);
+    if (!valueValidation.valid) {
+      console.error(`Error: ${valueValidation.reason}.`);
+      process.exitCode = 1;
+      return;
+    }
+  }
 
   // Create a copy to validate before saving
   const newConfig = JSON.parse(JSON.stringify(config));

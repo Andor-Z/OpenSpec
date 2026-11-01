@@ -4,6 +4,10 @@ import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
 
 import { getStoreMetadataPath } from './store/foundation.js';
+import {
+  formatSupportedNamingLanguages,
+  normalizeNamingLanguage,
+} from './naming-grammar.js';
 
 export const OPERATION_IDS = ['apply', 'archive'] as const;
 export type OperationId = (typeof OPERATION_IDS)[number];
@@ -85,6 +89,16 @@ export const ProjectConfigSchema = z.object({
     })
     .optional()
     .describe('GitHub Copilot integration preferences'),
+
+  // Optional: naming-language configuration. `changeNameLanguage` selects the
+  // change-name character set (see src/core/naming-grammar.ts); absent means
+  // the built-in default language applies.
+  naming: z
+    .object({
+      changeNameLanguage: z.string().min(1),
+    })
+    .optional()
+    .describe('Naming-language configuration (changeNameLanguage: zh-CN | en)'),
 });
 
 /** Normalized in-memory shape of a referenced store declaration. */
@@ -439,6 +453,36 @@ export function readProjectConfig(projectRoot: string): ProjectConfig | null {
         }
       } else {
         console.warn(`Invalid 'githubCopilot' field in config (must be an object)`);
+      }
+    }
+
+    // Parse the naming section explicitly. Unknown top-level keys are silently
+    // ignored, so a naming node nobody parsed would silently not work. Same
+    // resilient semantics as the other fields: warn and drop on bad shape or
+    // out-of-domain values, never hard-fail, never affect other fields.
+    if (raw.naming !== undefined) {
+      if (
+        typeof raw.naming === 'object' &&
+        raw.naming !== null &&
+        !Array.isArray(raw.naming)
+      ) {
+        const changeNameLanguage = (raw.naming as Record<string, unknown>).changeNameLanguage;
+        if (typeof changeNameLanguage === 'string' && changeNameLanguage.length > 0) {
+          const normalized = normalizeNamingLanguage(changeNameLanguage);
+          if (normalized !== null) {
+            config.naming = { changeNameLanguage: normalized };
+          } else {
+            console.warn(
+              `Invalid 'naming.changeNameLanguage' value '${changeNameLanguage}'. Supported: ${formatSupportedNamingLanguages()}`
+            );
+          }
+        } else if (changeNameLanguage !== undefined) {
+          console.warn(
+            `Invalid 'naming.changeNameLanguage' field in config (must be a non-empty string)`
+          );
+        }
+      } else {
+        console.warn(`Invalid 'naming' field in config (must be an object)`);
       }
     }
 
