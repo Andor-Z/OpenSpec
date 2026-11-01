@@ -28,6 +28,10 @@ rules:
   tasks:
     - Add Windows CI verification as a task when changes involve file paths
     - Include cross-platform testing considerations
+    - 工作流行为改动只改模板源（src/core/templates/），不改生成物（skills/）——生成物重生成即被覆盖（白名单登记的手工技能除外）
+    - 模板源改动后按顺序跑再生成三命令：corepack pnpm build && corepack pnpm regen:parity-hashes && corepack pnpm generate:skills（generate 从 dist/ 导入，必须先 build）
+    - 手工技能不进模板生成管线，用 MANUAL_SKILL_DIRS 白名单登记保护（登记 = 往数组追加目录名）
+    - openspec/ 新提案产物用 .git/info/exclude 本地排除不入库：只排除未跟踪新文件，已 tracked 的历史提案不受影响；git add 会被静默跳过，需 -f 强制
   design:
     - Document any platform-specific behavior or limitations
     - Prefer Node.js path module over string manipulation for paths
